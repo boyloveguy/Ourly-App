@@ -8,7 +8,7 @@ echo.
 
 :: Khoi dong Backend (FastAPI)
 echo [1/2] Dang khoi dong Backend (FastAPI)...
-start "Ourly Backend" cmd /k "cd /d d:\Ourly-App\backend && python -m uvicorn app.main:app --reload"
+start "Ourly Backend" cmd /k "cd /d d:\Ourly-App\backend && call .venv\Scripts\activate && python -m uvicorn app.main:app --reload"
 
 :: Doi 3 giay de backend khoi dong truoc
 timeout /t 3 /nobreak >nul
