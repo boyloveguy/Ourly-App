@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     
     CORS_ALLOWED_ORIGINS: str = "*"
 
+    # Cloudinary Storage
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+
     class Config:
         env_file = ".env"
 

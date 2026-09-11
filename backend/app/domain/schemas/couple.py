@@ -6,6 +6,7 @@ from enum import Enum
 class CoupleStatus(str, Enum):
     solo = "solo"
     connected = "connected"
+    archived = "archived"
 
 class ParticipantRole(str, Enum):
     creator = "creator"
@@ -17,6 +18,9 @@ class ParticipantBase(BaseModel):
 
 class ParticipantCreate(ParticipantBase):
     pass
+
+class ParticipantUpdate(BaseModel):
+    nickname: Optional[str] = None
 
 class Participant(ParticipantBase):
     id: str

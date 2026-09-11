@@ -26,6 +26,7 @@ class PreferenceUpdate(BaseModel):
 
 class Preference(PreferenceBase):
     id: str
+    coupleId: Optional[str] = None
     createdByUserId: str
     source: PreferenceSource
     createdAt: datetime

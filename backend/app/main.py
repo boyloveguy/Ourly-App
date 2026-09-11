@@ -4,15 +4,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.errors import AppException, ErrorResponse
 from app.infrastructure.firebase import init_firebase
-from app.api.routes import health, users, couples, invites, preferences
+from app.api.routes import health, auth, users, couples, invites, preferences, partners, recommendations, date_plans, chat, voice
 
 # Init Firebase
 init_firebase()
 
 app = FastAPI(
-    title="Love Advisor API",
+    title="Ourly - Love Advisor API",
     version="0.1.0",
-    description="Backend for the Love Advisor Flutter Application"
+    description="Backend for the Ourly Flutter Application connected to Cloud Firestore"
 )
 
 app.add_middleware(
@@ -31,7 +31,13 @@ async def app_exception_handler(request: Request, exc: AppException):
     )
 
 app.include_router(health.router)
+app.include_router(auth.router, prefix="/v1")
 app.include_router(users.router, prefix="/v1")
 app.include_router(couples.router, prefix="/v1")
 app.include_router(invites.router, prefix="/v1")
 app.include_router(preferences.router, prefix="/v1")
+app.include_router(partners.router, prefix="/v1")
+app.include_router(recommendations.router, prefix="/v1")
+app.include_router(date_plans.router, prefix="/v1")
+app.include_router(chat.router, prefix="/v1")
+app.include_router(voice.router, prefix="/v1")

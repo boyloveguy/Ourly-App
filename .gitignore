@@ -14,8 +14,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
+!frontend/lib/
 parts/
 sdist/
 var/
@@ -28,6 +29,7 @@ MANIFEST
 
 # Environment
 .env
+*serviceAccountKey*.json
 .venv
 env/
 venv/
