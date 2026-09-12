@@ -172,22 +172,20 @@ class AppTypography {
   /// Handwriting cursive script style matching reference ("Love Advisor" in Caveat)
   static TextStyle script({
     double fontSize = 32,
-    FontWeight fontWeight = FontWeight.w700,
+    FontWeight fontWeight = FontWeight.w400, // Pacifico only has Regular weight
     Color color = AppColors.textPrimary,
     double? letterSpacing,
     double? height,
     FontStyle? fontStyle,
   }) {
-    return GoogleFonts.caveat(
+    return GoogleFonts.pacifico(
       fontSize: fontSize,
-      fontWeight: fontWeight,
       color: color,
       letterSpacing: letterSpacing ?? 0.2,
       height: height,
       fontStyle: fontStyle,
       textStyle: TextStyle(
         fontFamilyFallback: [
-          GoogleFonts.sriracha().fontFamily!,
           GoogleFonts.plusJakartaSans().fontFamily!,
         ],
       ),

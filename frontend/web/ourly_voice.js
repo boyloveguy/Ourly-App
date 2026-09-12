@@ -100,7 +100,7 @@ window.OurlyVoice = {
 
     // 3. Primary: Play high-fidelity authentic Vietnamese voice from Backend / Google TTS
     try {
-      const backendUrl = 'http://127.0.0.1:8000/v1/voice/tts?text=' + encodeURIComponent(cleanText);
+      const backendUrl = 'https://apricot-freezable-chemicals.ngrok-free.dev/v1/voice/tts?text=' + encodeURIComponent(cleanText);
       const audio = new Audio(backendUrl);
       this.currentAudio = audio;
 
@@ -173,17 +173,20 @@ window.OurlyVoice = {
       return false;
     }
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'vi-VN';
-    utterance.rate = (options && options.rate) || 1.0;
-    utterance.pitch = (options && options.pitch) || 1.05;
-
-    // Look specifically for a Vietnamese voice
+    // Look specifically for a Vietnamese male voice
     const voices = this.speechSynth.getVoices() || [];
-    const viVoice = voices.find(v => v.lang && (v.lang.toLowerCase().startsWith('vi') || v.lang.toLowerCase().includes('vie') || (v.name && v.name.toLowerCase().includes('vietnam'))));
-    if (viVoice) {
-      utterance.voice = viVoice;
+    const viVoices = voices.filter(v => v.lang && (v.lang.toLowerCase().startsWith('vi') || v.lang.toLowerCase().includes('vie') || (v.name && v.name.toLowerCase().includes('vietnam'))));
+    const maleVoice = viVoices.find(v => {
+      const n = (v.name || '').toLowerCase();
+      return n.includes('nam') || n.includes('male') || n.includes('minh') || n.includes('an') || n.includes('khoi');
+    });
+    if (maleVoice) {
+      utterance.voice = maleVoice;
+    } else if (viVoices.length > 0) {
+      utterance.voice = viVoices[0];
     }
+    utterance.rate = (options && options.rate) || 1.18;
+    utterance.pitch = (options && options.pitch) || 0.96;
 
     utterance.onstart = () => {
       this.isSpeaking = true;

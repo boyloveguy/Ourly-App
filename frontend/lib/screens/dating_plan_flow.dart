@@ -6,18 +6,23 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_colors.dart';
 import '../models/date_spot.dart';
 import '../data/mock_date_spots.dart';
+import '../services/api_service.dart';
 import '../widgets/romantic_effects.dart';
+import '../widgets/ourly_toast.dart';
+import '../widgets/timeline_step_details.dart';
 import 'dating_place_detail_screen.dart';
 
 /// Dating Plan Navigator Flow (Giao diện Lên kèo hẹn hò Tiếng Việt)
 class DatingPlanFlow extends StatefulWidget {
   final List<String> initialPreferences;
   final String? partnerNickname;
+  final String? initialOccasionId;
 
   const DatingPlanFlow({
     super.key,
     this.initialPreferences = const [],
     this.partnerNickname,
+    this.initialOccasionId,
   });
 
   @override
@@ -35,12 +40,19 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
 
   // Kết quả AI
   List<DateSpot> _filteredSpots = [];
-  final Set<String> _pickedSpotIds = {'spot-1', 'spot-2'}; // Mặc định chọn 2 quán
+  final Set<String> _pickedSpotIds = {}; // Khởi đầu không tick sẵn quán nào
 
   @override
   void initState() {
     super.initState();
-    _selectedOccasion = MockDateSpotsData.occasions.first;
+    if (widget.initialOccasionId != null) {
+      _selectedOccasion = MockDateSpotsData.occasions.firstWhere(
+        (occ) => occ.id == widget.initialOccasionId,
+        orElse: () => MockDateSpotsData.occasions.first,
+      );
+    } else {
+      _selectedOccasion = MockDateSpotsData.occasions.first;
+    }
 
     // Tải sở thích đã lưu của user
     if (widget.initialPreferences.isNotEmpty) {
@@ -77,10 +89,7 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
 
     setState(() {
       _filteredSpots = spots;
-      if (_pickedSpotIds.isEmpty && spots.isNotEmpty) {
-        _pickedSpotIds.add(spots.first.id);
-        if (spots.length > 1) _pickedSpotIds.add(spots[1].id);
-      }
+      // Để trống danh sách đã chọn, để người dùng tự do lựa chọn quán ưng ý
       _currentScreenIndex = 2; // Chuyển sang màn Danh sách gợi ý
     });
   }
@@ -117,8 +126,28 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
   }
 
   void _createDatePlan() {
-    if (_pickedSpotIds.isEmpty && _filteredSpots.isNotEmpty) {
-      _pickedSpotIds.add(_filteredSpots.first.id);
+    if (_pickedSpotIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Text('💡', style: TextStyle(fontSize: 18)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Bạn hãy chọn ít nhất 1 địa điểm ưng ý để AI tạo lịch trình nhé! 💕',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFFE85A42),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
     }
     setState(() {
       _currentScreenIndex = 3; // Chuyển sang màn Timeline
@@ -149,21 +178,24 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
       child: Scaffold(
         backgroundColor: const Color(0xFFFCF5EE),
         body: SafeArea(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
-            transitionBuilder: (child, animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.04, 0),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              );
-            },
-            child: _buildCurrentScreen(),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.04, 0),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: _buildCurrentScreen(),
+            ),
           ),
         ),
       ),
@@ -774,7 +806,29 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
                 fit: StackFit.expand,
                 children: [
                   // Ảnh thumbnail thực tế của quán
-                  if (spot.heroImageUrl.isNotEmpty)
+                  if (spot.imageAsset.isNotEmpty)
+                    Image.asset(
+                      spot.imageAsset,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => spot.heroImageUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: spot.heroImageUrl,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: spot.gradientColors,
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(spot.iconEmoji, style: const TextStyle(fontSize: 48)),
+                              ),
+                            ),
+                    )
+                  else if (spot.heroImageUrl.isNotEmpty)
                     CachedNetworkImage(
                       imageUrl: spot.heroImageUrl,
                       fit: BoxFit.cover,
@@ -818,22 +872,27 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.35),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                spot.category,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                  color: Colors.white.withValues(alpha: 0.95),
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  spot.category,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.8,
+                                    color: Colors.white.withValues(alpha: 0.95),
+                                  ),
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
@@ -990,41 +1049,128 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
   // ==========================================
   // MÀN HÌNH 5: TIMELINE LỘ TRÌNH HẸN HÒ
   // ==========================================
-  Widget _buildTimelineScreen() {
-    final pickedSpots = _filteredSpots.where((s) => _pickedSpotIds.contains(s.id)).toList();
-    if (pickedSpots.isEmpty && _filteredSpots.isNotEmpty) {
-      pickedSpots.add(_filteredSpots.first);
+  List<DateSpot> _buildFullItinerarySpots() {
+    final picked = _filteredSpots.where((s) => _pickedSpotIds.contains(s.id)).toList();
+    if (picked.isEmpty && _filteredSpots.isNotEmpty) {
+      picked.add(_filteredSpots.first);
     }
 
-    // Xây dựng các bước timeline
+    // Luôn đảm bảo lịch trình có ít nhất 3 hoạt động phong phú (Khởi động, Ăn tối/Trọng tâm, Tráng miệng/Chill)
+    final completeList = List<DateSpot>.from(picked);
+    final allAvailable = MockDateSpotsData.allSpots;
+
+    if (completeList.length < 3) {
+      for (final spot in allAvailable) {
+        if (!completeList.any((s) => s.id == spot.id)) {
+          completeList.add(spot);
+          if (completeList.length >= 3) break;
+        }
+      }
+    }
+    return completeList;
+  }
+
+  void _saveAndReturnHome({
+    required List<DateSpot> spots,
+    required List<DateTimelineStep> timelineSteps,
+    required int totalCost,
+  }) {
+    // 1. Tạo bản ghi lịch sử buổi hẹn
+    final partner = widget.partnerNickname?.isNotEmpty == true ? widget.partnerNickname! : 'Người ấy';
+    final historyItem = DatingPlanHistoryItem(
+      id: 'plan-${DateTime.now().millisecondsSinceEpoch}',
+      title: '${_selectedOccasion.label} ngọt ngào cùng $partner',
+      occasionLabel: _selectedOccasion.label,
+      occasionEmoji: _selectedOccasion.emoji,
+      createdAt: DateTime.now(),
+      totalCost: totalCost,
+      totalCostDisplay: '${(totalCost / 1000).round()}K',
+      spots: spots,
+      timelineSteps: timelineSteps,
+      secretIdeaTitle: 'Mang theo loài hoa người ấy thích',
+      secretIdeaDesc: 'Hoa Tulip. Người ấy từng chụp ảnh hoa này vào mùa xuân năm ngoái.',
+      customWish: _customWishController.text,
+      partnerName: partner,
+      isCompleted: false,
+    );
+
+    // 2. Lưu vào ApiService
+    ApiService().saveDatePlan(historyItem);
+
+    // 3. Hiệu ứng trái tim lung linh & Toast thông báo nổi hiện đại
+    LoveSparkleOverlay.show(context);
+    OurlyToast.showLove(
+      context,
+      'Đã lưu buổi hẹn vào Lịch sử & Không gian của hai bạn! ✨',
+      title: 'Kế hoạch hoàn hảo 💕',
+    );
+
+    // 4. Quay về màn hình Home dứt khoát
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  Widget _buildTimelineScreen() {
+    final spots = _buildFullItinerarySpots();
+
+    // Chuẩn bị các mốc timeline đa dạng và giàu hoạt động
     final timelineSteps = <DateTimelineStep>[];
-    for (int i = 0; i < pickedSpots.length; i++) {
-      final s = pickedSpots[i];
+    final defaultTimes = [
+      '16:30 - 18:00 · ĐÓN HOÀNG HÔN & DẠO BỘ',
+      '18:30 - 20:30 · BỮA TỐI LÃNG MẠN DƯỚI ÁNH NẾN',
+      '20:45 - 22:00 · TRÁNG MIỆNG NGỌT NGÀO & LẮNG ĐỌNG',
+      '22:00 - 23:00 · DẠO ĐÊM & CHILL BỜ BIỂN',
+    ];
+
+    for (int i = 0; i < spots.length; i++) {
+      final s = spots[i];
       Color nodeColor = const Color(0xFFFFE7DD);
       if (i == 1) nodeColor = const Color(0xFFFFDFE8);
       if (i >= 2) nodeColor = const Color(0xFFDBECF8);
 
+      final timeLabel = i < defaultTimes.length ? defaultTimes[i] : s.timeSlotLabel;
+
       timelineSteps.add(DateTimelineStep(
         iconEmoji: s.iconEmoji,
-        timeLabel: s.timeSlotLabel,
+        timeLabel: timeLabel,
         title: s.activityTitle,
         description: s.aiNote,
         nodeBgColor: nodeColor,
+        imageAsset: s.imageAsset,
+        categoryTag: s.category,
+        locationName: s.name,
+        activities: s.activities,
+        conversationTopics: s.conversationTopics,
+        caringTips: s.caringTips,
+        highlightQuote: s.highlightQuote,
       ));
     }
 
-    // Bước bí mật ngọt ngào
+    // Luôn có bước bí mật ngọt ngào cuối cùng với hướng dẫn đầy đủ
     timelineSteps.add(const DateTimelineStep(
       iconEmoji: '💌',
       timeLabel: 'BẤT CỨ LÚC NÀO TRƯỚC KHI GẶP NGƯỜI ẤY',
-      title: 'Bí mật ngọt ngào',
-      description: 'Hoa Tulip — người ấy sẽ bất ngờ vì bạn vẫn nhớ sở thích này.',
+      title: 'Bí mật ngọt ngào dành riêng cho người ấy',
+      description: 'Hoa Tulip & Lời nhắn viết tay — người ấy sẽ bất ngờ vì bạn luôn nhớ từng chi tiết nhỏ.',
       nodeBgColor: Color(0xFFFFE0E8),
+      categoryTag: 'BẬT MÍ BÍ MẬT',
+      locationName: 'Chuẩn bị trước',
+      activities: [
+        'Ghé tiệm hoa mua 1 cành hoặc bó tulip màu pastel người ấy thích nhất.',
+        'Kèm một tấm thiệp nhỏ viết tay 2-3 câu chân thành (ví dụ: "Cảm ơn vì đã luôn ở bên anh/em").',
+      ],
+      conversationTopics: [
+        'Hỏi người ấy về cảm xúc khi lần đầu hai bạn gặp nhau.',
+        'Chia sẻ một điều đáng yêu mà người ấy làm khiến bạn nhớ mãi.',
+      ],
+      caringTips: [
+        'Giấu quà trong túi xách hoặc cốp xe, trao tặng vào thời điểm bất ngờ nhất khi đối phương ít đề phòng nhất.',
+      ],
+      highlightQuote: 'Khoảnh khắc bất ngờ luôn đọng lại sâu sắc hơn vạn lời nói.',
     ));
 
-    // Tính toán chi phí
+    // Tính toán chi phí thực tế từ các hoạt động
     int totalCost = 0;
-    for (final s in pickedSpots) {
+    for (final s in spots) {
       totalCost += s.cost;
     }
     if (totalCost == 0) totalCost = 480000;
@@ -1033,7 +1179,7 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
     return Column(
       key: const ValueKey('TimelineScreen'),
       children: [
-        // Thanh trên cùng
+        // 1. Thanh tiêu đề trên cùng
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Row(
@@ -1048,7 +1194,7 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
@@ -1061,50 +1207,115 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
                   ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'LỘ TRÌNH HẸN HÒ AI GỢI Ý',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        color: const Color(0xFFE85A42),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_selectedOccasion.label} trọn vẹn',
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF2C1810),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0EC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFFDDD2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('✨', style: TextStyle(fontSize: 12)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${spots.length} hoạt động',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFFE85A42),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
 
-        // Nội dung timeline cuộn
+        // 2. Nội dung timeline cuộn (luôn mở rộng vừa vặn màn hình)
         Expanded(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Dòng giới thiệu mở đầu
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    'Không cần xem đồng hồ. Cứ thong thả tận hưởng từng khoảnh khắc theo cách tự nhiên nhất.',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF7A645D),
-                      height: 1.4,
-                    ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFF3E7DF)),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  child: Row(
+                    children: [
+                      const Text('🕊️', style: TextStyle(fontSize: 20)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Không cần xem đồng hồ. Cứ thong thả tận hưởng từng khoảnh khắc theo cách tự nhiên nhất.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF6B554E),
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.08, end: 0),
 
-                // Trục Timeline dọc
+                const SizedBox(height: 20),
+
+                // Trục Timeline dọc kết nối các hoạt động
                 Stack(
                   children: [
-                    // Đường kẻ nối các điểm
+                    // Đường kẻ nối ánh sáng lung linh
                     Positioned(
                       left: 23,
                       top: 24,
-                      bottom: 40,
+                      bottom: 36,
                       child: Container(
                         width: 2.5,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
+                          gradient: const LinearGradient(
                             colors: [
-                              const Color(0xFFFFB5A0).withValues(alpha: 0.8),
-                              const Color(0xFFD3A4CF).withValues(alpha: 0.6),
-                              const Color(0xFFA0C6E8).withValues(alpha: 0.7),
+                              Color(0xFFFF9E80),
+                              Color(0xFFE85A42),
+                              Color(0xFFD6A4E8),
+                              Color(0xFFA0C6E8),
                             ],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
@@ -1114,113 +1325,191 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
                       ),
                     ),
 
-                    // Cột các bước
+                    // Danh sách các bước trong lịch trình
                     Column(
-                      children: timelineSteps.map((step) {
+                      children: timelineSteps.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final step = entry.value;
+                        final isLast = index == timelineSteps.length - 1;
+
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 20),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Icon tròn node
+                              // Node tròn biểu tượng
                               Container(
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
                                   color: step.nodeBgColor,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2.5),
+                                  border: Border.all(color: Colors.white, width: 2.8),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFFE85A42).withValues(alpha: 0.12),
+                                      color: const Color(0xFFE85A42).withValues(alpha: 0.16),
                                       blurRadius: 10,
                                       offset: const Offset(0, 3),
                                     ),
                                   ],
                                 ),
                                 alignment: Alignment.center,
-                                child: Text(step.iconEmoji, style: const TextStyle(fontSize: 20)),
+                                child: Text(step.iconEmoji, style: const TextStyle(fontSize: 21)),
                               ),
                               const SizedBox(width: 14),
 
-                              // Thẻ nội dung
+                              // Thẻ nội dung sang trọng và lộng lẫy
                               Expanded(
                                 child: Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(22),
-                                    border: Border.all(color: const Color(0xFFF4E8E1)),
+                                    border: Border.all(
+                                      color: isLast
+                                          ? const Color(0xFFFFD1DC)
+                                          : const Color(0xFFF6ECE5),
+                                      width: 1.2,
+                                    ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.025),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 3),
+                                        color: const Color(0xFF2C1810).withValues(alpha: 0.04),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
                                       ),
                                     ],
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        step.timeLabel,
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w800,
-                                          fontStyle: FontStyle.italic,
-                                          letterSpacing: 0.8,
-                                          color: const Color(0xFFB87860),
-                                        ),
+                                      // Thẻ thời gian & Badge phân loại
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              step.timeLabel,
+                                              style: GoogleFonts.plusJakartaSans(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w800,
+                                                fontStyle: FontStyle.italic,
+                                                letterSpacing: 0.6,
+                                                color: const Color(0xFFB87860),
+                                              ),
+                                            ),
+                                          ),
+                                          if (step.categoryTag.isNotEmpty)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFFF4EE),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: Text(
+                                                step.categoryTag,
+                                                style: GoogleFonts.plusJakartaSans(
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: const Color(0xFFE85A42),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 5),
-                                      Text(
-                                        step.title,
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF2C1810),
-                                        ),
+                                      const SizedBox(height: 6),
+
+                                      // Tiêu đề hoạt động & Hình ảnh thực tế
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  step.title,
+                                                  style: GoogleFonts.plusJakartaSans(
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: const Color(0xFF2C1810),
+                                                    height: 1.2,
+                                                  ),
+                                                ),
+                                                if (step.locationName.isNotEmpty) ...[
+                                                  const SizedBox(height: 4),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFFE85A42)),
+                                                      const SizedBox(width: 3),
+                                                      Expanded(
+                                                        child: Text(
+                                                          step.locationName,
+                                                          style: GoogleFonts.plusJakartaSans(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: const Color(0xFF8A7169),
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          if (step.imageAsset.isNotEmpty) ...[
+                                            const SizedBox(width: 10),
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(14),
+                                              child: Image.asset(
+                                                step.imageAsset,
+                                                width: 58,
+                                                height: 58,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
-                                      const SizedBox(height: 5),
-                                      Text(
-                                        step.description,
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w500,
-                                          color: const Color(0xFF6B554E),
-                                          height: 1.35,
-                                        ),
-                                      ),
+                                      const SizedBox(height: 10),
+
+                                      // Gợi ý hoạt động, chủ đề tâm sự & cử chỉ tinh tế từ AI
+                                      DateTimelineStepDetails(step: step),
                                     ],
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                        );
+                        ).animate().fadeIn(
+                          delay: (120 * index).ms,
+                          duration: 450.ms,
+                        ).slideY(begin: 0.12, end: 0, curve: Curves.easeOutCubic);
                       }).toList(),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
 
-                // Thẻ bí mật: BẬT MÍ NHỎ DÀNH RIÊNG CHO BẠN
+                const SizedBox(height: 8),
+
+                // Thẻ bí mật phong thư dập nổi lộng lẫy
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFFFF4EB), Color(0xFFFCEDF4)],
+                      colors: [Color(0xFFFFF5ED), Color(0xFFFDEDF3), Color(0xFFF7EBFD)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFFFDFC9)),
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(color: const Color(0xFFFFD9C5), width: 1.5),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFE85A42).withValues(alpha: 0.08),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
+                        color: const Color(0xFFE85A42).withValues(alpha: 0.1),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
@@ -1232,88 +1521,111 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
                         child: Text(
                           '💌',
                           style: TextStyle(
-                            fontSize: 48,
-                            color: Colors.black.withValues(alpha: 0.1),
+                            fontSize: 46,
+                            color: Colors.black.withValues(alpha: 0.08),
                           ),
                         ),
                       ),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'BẬT MÍ NHỎ DÀNH RIÊNG CHO BẠN',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.5,
-                              color: const Color(0xFFB87860),
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE85A42).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '✦ BẬT MÍ NHỎ DÀNH RIÊNG CHO BẠN',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.2,
+                                    color: const Color(0xFFE85A42),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 10),
                           Text(
                             'Mang theo loài hoa người ấy thích.',
                             style: AppTypography.script(
-                              fontSize: 26,
+                              fontSize: 27,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF2C1810),
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Text(
-                            'Hoa Tulip. Người ấy từng chụp ảnh hoa này vào mùa xuân năm ngoái.',
+                            'Hoa Tulip. Người ấy từng chụp ảnh hoa này vào mùa xuân năm ngoái và lưu trong sở thích bí mật.',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w500,
                               color: const Color(0xFF6B554E),
+                              height: 1.35,
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 18),
+                ).animate().fadeIn(delay: 450.ms, duration: 500.ms).slideY(begin: 0.1, end: 0),
 
-                // Dự toán ngân sách
-                Center(
-                  child: Text(
-                    'khoảng $totalCostK, trọn vẹn từng khoảnh khắc',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF9E847C),
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
 
-                // Nút hoàn tất & Nút tim
+        // 3. THANH NÚT DƯỚI CÙNG LUÔN CỐ ĐỊNH (Không bị nhảy lên giữa màn hình)
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2C1810).withValues(alpha: 0.07),
+                blurRadius: 20,
+                offset: const Offset(0, -6),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Dự toán ngân sách rõ ràng
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.auto_awesome, size: 14, color: Color(0xFFE85A42)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'khoảng $totalCostK, trọn vẹn từng khoảnh khắc',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF7A645D),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Nút Lưu buổi hẹn hoàn hảo & Nút tim yêu thích
                 Row(
                   children: [
                     Expanded(
                       child: CuteBounceOnTap(
-                        onTap: () {
-                          LoveSparkleOverlay.show(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: const Color(0xFF2C1914),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              content: const Row(
-                                children: [
-                                  Text('💖', style: TextStyle(fontSize: 18)),
-                                  SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      'Buổi hẹn đã được lên kế hoạch hoàn hảo! Chúc hai bạn có những khoảnh khắc ngọt ngào.',
-                                      style: TextStyle(color: Colors.white, fontSize: 13),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                        onTap: () => _saveAndReturnHome(
+                          spots: spots,
+                          timelineSteps: timelineSteps,
+                          totalCost: totalCost,
+                        ),
                         child: Container(
                           height: 56,
                           decoration: BoxDecoration(
@@ -1332,23 +1644,34 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
                             ],
                           ),
                           alignment: Alignment.center,
-                          child: Text(
-                            'Lưu buổi hẹn hoàn hảo 💖',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: 0.3,
-                            ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Lưu buổi hẹn hoàn hảo 💖',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 14),
+
                     // Nút Bookmark trái tim
                     CuteBounceOnTap(
                       onTap: () {
                         LoveSparkleOverlay.show(context);
+                        OurlyToast.showLove(
+                          context,
+                          'Đã thêm buổi hẹn vào danh sách yêu thích của hai bạn! 💌',
+                          title: 'Yêu thích 💕',
+                        );
                       },
                       child: Container(
                         width: 56,
@@ -1356,29 +1679,28 @@ class _DatingPlanFlowState extends State<DatingPlanFlow> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFF1E6DF)),
+                          border: Border.all(color: const Color(0xFFF1E6DF), width: 1.5),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 10,
                               offset: const Offset(0, 3),
                             ),
                           ],
                         ),
                         child: const Icon(
-                          Icons.favorite_border_rounded,
+                          Icons.favorite_rounded,
                           size: 24,
-                          color: Color(0xFFB87860),
+                          color: Color(0xFFE85A42),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 28),
               ],
             ),
           ),
-        ),
+        ).animate().fadeIn(delay: 350.ms, duration: 400.ms).slideY(begin: 0.15, end: 0),
       ],
     );
   }

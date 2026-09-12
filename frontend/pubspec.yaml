@@ -19,6 +19,7 @@ dependencies:
   google_fonts: ^8.2.1
   cached_network_image: ^4.0.0
   shadcn_ui: ^0.56.3
+  flutter_markdown: ^0.7.7+1
 
 dev_dependencies:
   flutter_test:

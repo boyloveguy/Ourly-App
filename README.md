@@ -123,8 +123,8 @@ flutter run -d web-server --web-port 3000
 | Dịch vụ | URL |
 |---|---|
 | Frontend Web | http://localhost:3000 |
-| Backend API | http://localhost:8000 |
-| API Docs (Swagger) | http://localhost:8000/docs |
+| Backend API | https://apricot-freezable-chemicals.ngrok-free.dev (hoặc http://localhost:8000) |
+| API Docs (Swagger) | https://apricot-freezable-chemicals.ngrok-free.dev/docs |
 
 ---
 

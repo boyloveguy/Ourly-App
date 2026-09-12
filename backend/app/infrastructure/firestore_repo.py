@@ -67,6 +67,8 @@ class FirestoreRepo:
     def save_or_update_user(uid: str, data: Dict[str, Any]) -> Dict[str, Any]:
         now_str = datetime.now(timezone.utc).isoformat()
         clean_data = {k: v for k, v in data.items() if v is not None}
+        if "activeCoupleId" in data:
+            clean_data["activeCoupleId"] = data["activeCoupleId"]
         clean_data["uid"] = uid
         clean_data["updatedAt"] = now_str
         
@@ -90,9 +92,9 @@ class FirestoreRepo:
         if "email" in clean_data and clean_data["email"]:
             mock_users_by_email[clean_data["email"].strip().lower()] = existing_mock
 
-        if "activeCoupleId" in clean_data:
-            if clean_data["activeCoupleId"]:
-                mock_user_couple[uid] = clean_data["activeCoupleId"]
+        if "activeCoupleId" in data:
+            if data["activeCoupleId"]:
+                mock_user_couple[uid] = data["activeCoupleId"]
             elif uid in mock_user_couple:
                 del mock_user_couple[uid]
 
@@ -220,6 +222,16 @@ class FirestoreRepo:
 
     @staticmethod
     def get_invite_by_token(token: str) -> Optional[Invite]:
+        token = token.strip().upper()
+        if "/INVITE/" in token:
+            token = token.split("/INVITE/")[-1].strip()
+        if "?" in token:
+            token = token.split("?")[0].strip()
+        if "#" in token:
+            token = token.split("#")[0].strip()
+        token = token.rstrip("/")
+        if len(token) == 4 and not token.startswith("LV-"):
+            token = f"LV-{token}"
         if is_firestore_enabled():
             try:
                 db = get_db()
@@ -230,6 +242,25 @@ class FirestoreRepo:
                 print(f"[FirestoreRepo] Error reading invite by token {token}: {e}")
                 
         return next((i for i in mock_invites.values() if i.tokenHash == token), None)
+
+    @staticmethod
+    def get_active_pending_invite_for_couple(couple_id: str) -> Optional[Invite]:
+        now = datetime.now(timezone.utc)
+        if is_firestore_enabled():
+            try:
+                db = get_db()
+                docs = db.collection("invites").where("coupleId", "==", couple_id).where("status", "==", InviteStatus.pending.value).get()
+                for doc in docs:
+                    inv = Invite(**doc.to_dict())
+                    if inv.expiresAt > now:
+                        return inv
+            except Exception as e:
+                print(f"[FirestoreRepo] Error reading active pending invite: {e}")
+
+        for inv in mock_invites.values():
+            if inv.coupleId == couple_id and inv.status == InviteStatus.pending and inv.expiresAt > now:
+                return inv
+        return None
 
     @staticmethod
     def revoke_pending_invites_for_couple(couple_id: str):

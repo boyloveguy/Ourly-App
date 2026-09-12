@@ -19,7 +19,12 @@ def chat_with_advisor(req: ChatRequest, uid: str = Depends(get_current_user_id))
     })
 
     # 2. Generate AI response
-    response = AIService.generate_reply(uid=uid, message=req.message, history=req.history)
+    response = AIService.generate_reply(
+        uid=uid,
+        message=req.message,
+        history=req.history,
+        client_context=req.clientContext
+    )
 
     # 3. Save assistant reply to history
     reply_time = datetime.now(timezone.utc).isoformat()

@@ -18,6 +18,7 @@ class RegisterRequest(BaseModel):
     email: str = Field(..., description="User's email address")
     password: str = Field(..., min_length=6, description="User password, minimum 6 characters")
     nickname: Optional[str] = Field(None, description="Optional user display name")
+    gender: Optional[str] = Field(None, description="Optional user gender ('male', 'female', 'other')")
 
 class LoginRequest(BaseModel):
     email: str = Field(..., description="User's email address")
@@ -60,6 +61,7 @@ def register(req: RegisterRequest):
         "email": norm_email,
         "hashedPassword": hashed_pw,
         "nickname": clean_nickname,
+        "gender": req.gender,
         "activeCoupleId": None,
         "createdAt": now_str,
     }
@@ -72,6 +74,8 @@ def register(req: RegisterRequest):
         nickname=saved.get("nickname"),
         birthday=saved.get("birthday"),
         avatar=saved.get("avatar"),
+        gender=saved.get("gender"),
+        datingStartDate=saved.get("datingStartDate"),
         activeCoupleId=saved.get("activeCoupleId"),
         createdAt=saved.get("createdAt"),
     )
@@ -115,6 +119,8 @@ def login(req: LoginRequest):
         nickname=user.get("nickname"),
         birthday=user.get("birthday"),
         avatar=user.get("avatar"),
+        gender=user.get("gender"),
+        datingStartDate=user.get("datingStartDate"),
         activeCoupleId=user.get("activeCoupleId"),
         createdAt=user.get("createdAt"),
     )

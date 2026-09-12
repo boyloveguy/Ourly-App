@@ -13,6 +13,8 @@ class UserProfileResponse(BaseModel):
     nickname: Optional[str] = None
     birthday: Optional[str] = None
     avatar: Optional[str] = None
+    gender: Optional[str] = None
+    datingStartDate: Optional[str] = None
     activeCoupleId: Optional[str] = None
     createdAt: Optional[str] = None
 
@@ -20,6 +22,8 @@ class UserProfileUpdate(BaseModel):
     nickname: Optional[str] = None
     birthday: Optional[str] = None
     avatar: Optional[str] = None
+    gender: Optional[str] = None
+    datingStartDate: Optional[str] = None
     email: Optional[str] = None
 
 @router.get("/users/me", response_model=UserProfileResponse)
@@ -46,6 +50,8 @@ def get_me(uid: str = Depends(get_current_user_id)):
         nickname=user_doc.get("nickname"),
         birthday=user_doc.get("birthday"),
         avatar=user_doc.get("avatar"),
+        gender=user_doc.get("gender"),
+        datingStartDate=user_doc.get("datingStartDate"),
         activeCoupleId=user_doc.get("activeCoupleId"),
         createdAt=user_doc.get("createdAt")
     )
@@ -62,6 +68,8 @@ def update_me(update_data: UserProfileUpdate, uid: str = Depends(get_current_use
         nickname=saved.get("nickname"),
         birthday=saved.get("birthday"),
         avatar=saved.get("avatar"),
+        gender=saved.get("gender"),
+        datingStartDate=saved.get("datingStartDate"),
         activeCoupleId=saved.get("activeCoupleId"),
         createdAt=saved.get("createdAt")
     )

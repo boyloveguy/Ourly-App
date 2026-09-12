@@ -41,6 +41,7 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
   bool _isCustomPrefActive = false;
   bool _isLoading = false;
   String _selectedAvatar = 'M';
+  String? _selectedGender;
   final _apiService = ApiService();
 
   final List<String> _avatarPresets = [
@@ -64,6 +65,9 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
       }
       if (_apiService.currentUser!.birthday != null && _apiService.currentUser!.birthday!.isNotEmpty) {
         _dobController.text = _apiService.currentUser!.birthday!;
+      }
+      if (_apiService.currentUser!.gender != null && _apiService.currentUser!.gender!.isNotEmpty) {
+        _selectedGender = _apiService.currentUser!.gender;
       }
     }
   }
@@ -301,6 +305,14 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
             ? _apiService.currentUser!.nickname
             : 'Bạn');
 
+    // 0. Update user profile with gender & info
+    await _apiService.updateCurrentUserProfile(
+      nickname: name,
+      avatar: _selectedAvatar,
+      birthday: _dobController.text.trim(),
+      gender: _selectedGender,
+    );
+
     // 1. Create solo space
     final space = await _apiService.createSoloCouple(
       nickname: name,
@@ -372,7 +384,7 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.fromLTRB(24, 44, 24, 24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
@@ -528,6 +540,10 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 14),
+
+                // Input Card: Gender Selector
+                _buildGenderSelector(),
                 const SizedBox(height: 14),
 
                 // Input Card: City
@@ -858,6 +874,89 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
               const SizedBox(width: 8),
               trailing,
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGenderSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: AppShadows.input3D,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'GIỚI TÍNH CỦA BẠN',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _buildGenderOption('male', 'Nam', '👨')),
+              const SizedBox(width: 8),
+              Expanded(child: _buildGenderOption('female', 'Nữ', '👩')),
+              const SizedBox(width: 8),
+              Expanded(child: _buildGenderOption('other', 'Khác', '✨')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenderOption(String value, String label, String emoji) {
+    final isSelected = _selectedGender == value;
+    return CuteBounceOnTap(
+      onTap: () {
+        setState(() {
+          _selectedGender = value;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.tagSelectedBg : const Color(0xFFF9F5F2),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFEFE8E3),
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 15)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+              ),
+            ),
           ],
         ),
       ),

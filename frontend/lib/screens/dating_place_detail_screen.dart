@@ -135,7 +135,7 @@ class _DatingPlaceDetailScreenState extends State<DatingPlaceDetailScreen> {
 
           // Top Navigation Floating Bar (Back & Fit %)
           Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
+            top: MediaQuery.of(context).padding.top + 16,
             left: 16,
             right: 16,
             child: Row(
@@ -281,26 +281,34 @@ class _DatingPlaceDetailScreenState extends State<DatingPlaceDetailScreen> {
               end: Alignment.bottomCenter,
             ),
           ),
-          child: spot.heroImageUrl.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: spot.heroImageUrl,
+          child: spot.imageAsset.isNotEmpty
+              ? Image.asset(
+                  spot.imageAsset,
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: spot.gradientColors,
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(spot.iconEmoji, style: const TextStyle(fontSize: 60)),
-                    ),
-                  ),
+                  errorBuilder: (_, __, ___) => spot.heroImageUrl.isNotEmpty
+                      ? CachedNetworkImage(imageUrl: spot.heroImageUrl, fit: BoxFit.cover)
+                      : Center(child: Text(spot.iconEmoji, style: const TextStyle(fontSize: 60))),
                 )
-              : Center(
-                  child: Text(spot.iconEmoji, style: const TextStyle(fontSize: 60)),
-                ),
+              : (spot.heroImageUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: spot.heroImageUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: spot.gradientColors,
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(spot.iconEmoji, style: const TextStyle(fontSize: 60)),
+                        ),
+                      ),
+                    )
+                  : Center(
+                      child: Text(spot.iconEmoji, style: const TextStyle(fontSize: 60)),
+                    )),
         ),
 
         // Dark gradient overlay for text readability
@@ -349,7 +357,7 @@ class _DatingPlaceDetailScreenState extends State<DatingPlaceDetailScreen> {
                     Shadow(
                       color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      offset: const Offset(0, 1),
                     ),
                   ],
                 ),
@@ -369,6 +377,8 @@ class _DatingPlaceDetailScreenState extends State<DatingPlaceDetailScreen> {
     return Row(
       children: List.generate(3, (index) {
         final imgUrl = index < images.length ? images[index] : images.first;
+        final isAsset = imgUrl.startsWith('assets/');
+
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(
@@ -379,19 +389,21 @@ class _DatingPlaceDetailScreenState extends State<DatingPlaceDetailScreen> {
               borderRadius: BorderRadius.circular(16),
               child: AspectRatio(
                 aspectRatio: 1.0,
-                child: CachedNetworkImage(
-                  imageUrl: imgUrl,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => Container(
-                    color: const Color(0xFFF0E5DE),
-                    child: Center(
-                      child: Text(
-                        index == 0 ? '📷' : (index == 1 ? '✨' : '🌸'),
-                        style: const TextStyle(fontSize: 24),
+                child: isAsset
+                    ? Image.asset(imgUrl, fit: BoxFit.cover)
+                    : CachedNetworkImage(
+                        imageUrl: imgUrl,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => Container(
+                          color: const Color(0xFFF0E5DE),
+                          child: Center(
+                            child: Text(
+                              index == 0 ? '📷' : (index == 1 ? '✨' : '🌸'),
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
               ),
             ),
           ),

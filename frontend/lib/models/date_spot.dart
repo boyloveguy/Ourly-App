@@ -32,6 +32,7 @@ class DateSpot {
   final String iconEmoji;
   final List<Color> gradientColors;
   final String heroImageUrl;
+  final String imageAsset;
   final List<String> galleryImages;
   final String fullAddress;
   final String description;
@@ -56,12 +57,22 @@ class DateSpot {
     required this.iconEmoji,
     required this.gradientColors,
     this.heroImageUrl = '',
+    this.imageAsset = '',
     this.galleryImages = const [],
     this.fullAddress = '',
     this.description = '',
     this.menuItems = const [],
     this.aiReasons = const [],
+    this.activities = const [],
+    this.conversationTopics = const [],
+    this.caringTips = const [],
+    this.highlightQuote = '',
   });
+
+  final List<String> activities;
+  final List<String> conversationTopics;
+  final List<String> caringTips;
+  final String highlightQuote;
 }
 
 class DateTimelineStep {
@@ -70,6 +81,13 @@ class DateTimelineStep {
   final String title;
   final String description;
   final Color nodeBgColor;
+  final String imageAsset;
+  final String categoryTag;
+  final String locationName;
+  final List<String> activities;
+  final List<String> conversationTopics;
+  final List<String> caringTips;
+  final String highlightQuote;
 
   const DateTimelineStep({
     required this.iconEmoji,
@@ -77,5 +95,46 @@ class DateTimelineStep {
     required this.title,
     required this.description,
     required this.nodeBgColor,
+    this.imageAsset = '',
+    this.categoryTag = '',
+    this.locationName = '',
+    this.activities = const [],
+    this.conversationTopics = const [],
+    this.caringTips = const [],
+    this.highlightQuote = '',
+  });
+}
+
+class DatingPlanHistoryItem {
+  final String id;
+  final String title;
+  final String occasionLabel;
+  final String occasionEmoji;
+  final DateTime createdAt;
+  final int totalCost;
+  final String totalCostDisplay;
+  final List<DateSpot> spots;
+  final List<DateTimelineStep> timelineSteps;
+  final String secretIdeaTitle;
+  final String secretIdeaDesc;
+  final String customWish;
+  final String partnerName;
+  final bool isCompleted;
+
+  const DatingPlanHistoryItem({
+    required this.id,
+    required this.title,
+    required this.occasionLabel,
+    required this.occasionEmoji,
+    required this.createdAt,
+    required this.totalCost,
+    required this.totalCostDisplay,
+    required this.spots,
+    required this.timelineSteps,
+    required this.secretIdeaTitle,
+    required this.secretIdeaDesc,
+    this.customWish = '',
+    this.partnerName = 'Người ấy',
+    this.isCompleted = false,
   });
 }

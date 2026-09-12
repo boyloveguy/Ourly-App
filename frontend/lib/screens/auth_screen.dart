@@ -146,13 +146,13 @@ class _AuthScreenState extends State<AuthScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 20),
+              padding: const EdgeInsets.fromLTRB(28.0, 28.0, 28.0, 20.0),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
                     // Glowing Center Orb & 3D Heart Logo (Matching reference)
                     HeartbeatPulse(

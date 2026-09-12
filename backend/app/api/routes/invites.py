@@ -17,13 +17,23 @@ def get_couple_for_user(uid: str):
     return couple
 
 @router.post("/couples/{coupleId}/invites", response_model=Invite)
-def create_invite(coupleId: str, uid: str = Depends(get_current_user_id)):
+def create_invite(
+    coupleId: str, 
+    force_new: bool = Query(False),
+    uid: str = Depends(get_current_user_id)
+):
     couple = get_couple_for_user(uid)
     if couple.id != coupleId:
         raise forbidden()
         
     if couple.status == CoupleStatus.connected:
         raise validation_error("Couple space is already full.")
+
+    now = datetime.now(timezone.utc)
+    if not force_new:
+        existing_inv = FirestoreRepo.get_active_pending_invite_for_couple(coupleId)
+        if existing_inv and existing_inv.expiresAt > now:
+            return existing_inv
 
     # Revoke old pending invites for this couple
     FirestoreRepo.revoke_pending_invites_for_couple(coupleId)
@@ -32,7 +42,6 @@ def create_invite(coupleId: str, uid: str = Depends(get_current_user_id)):
     chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
     rand_part = "".join(secrets.choice(chars) for _ in range(4))
     token = f"LV-{rand_part}"
-    now = datetime.now(timezone.utc)
     
     invite = Invite(
         id=str(uuid.uuid4()),
@@ -78,7 +87,7 @@ def preview_invite(req: AcceptInviteRequest, uid: str = Depends(get_current_user
 def accept_invite(
     req: AcceptInviteRequest, 
     nickname: str, 
-    archive_solo: bool = Query(False),
+    archive_solo: bool = Query(True),
     uid: str = Depends(get_current_user_id)
 ):
     inv = FirestoreRepo.get_invite_by_token(req.token)
@@ -104,8 +113,10 @@ def accept_invite(
     # Check if user already has an active space
     current_couple = FirestoreRepo.get_active_couple_for_user(uid)
     if current_couple:
-        if current_couple.status == CoupleStatus.solo and archive_solo:
-            # Archive solo space
+        if current_couple.id == couple.id:
+            return {"status": "success", "coupleId": couple.id}
+        elif current_couple.status == CoupleStatus.solo and archive_solo:
+            # Archive solo space to join partner's couple space
             current_couple.status = CoupleStatus.archived
             FirestoreRepo.update_couple(current_couple)
         else:

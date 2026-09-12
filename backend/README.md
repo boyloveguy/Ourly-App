@@ -51,7 +51,7 @@ Please ensure the Flutter app aligns with this contract when it is initialized.
 3. Install dependencies: `pip install -e ".[dev]"`
 4. Copy `.env.example` to `.env` and fill in your Firebase credentials.
 5. Run the server: `uvicorn app.main:app --reload`
-6. Access Swagger UI at `http://127.0.0.1:8000/docs`
+6. Access Swagger UI at `https://apricot-freezable-chemicals.ngrok-free.dev/docs` (or local `http://127.0.0.1:8000/docs`)
 
 ## AI Mock
 

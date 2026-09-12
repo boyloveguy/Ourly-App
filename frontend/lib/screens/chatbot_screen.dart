@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/voice_service.dart';
 import '../widgets/romantic_effects.dart';
+import '../widgets/ourly_toast.dart';
 
 class ChatMessage {
   final String text;
@@ -38,7 +40,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _isListening = false;
   bool _isSpeaking = false;
   int? _speakingMessageIndex;
-  bool _autoSpeakEnabled = true;
+  bool _autoSpeakEnabled = false;
   bool _isLoadingHistory = true;
 
   final List<ChatMessage> _messages = [];
@@ -193,23 +195,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             _isListening = false;
           });
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Chưa thể nhận diện giọng nói: $err'),
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            OurlyToast.showError(context, 'Chưa thể nhận diện giọng nói: $err');
           }
         },
       );
 
       if (!started && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Trình duyệt chưa hỗ trợ hoặc bạn chưa cấp quyền Micro.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        OurlyToast.showInfo(context, 'Trình duyệt chưa hỗ trợ hoặc bạn chưa cấp quyền Micro.');
       }
     }
   }
@@ -280,22 +272,53 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             })
         .toList();
 
+    // Collect comprehensive profile & mood context for both user and partner
+    final todayUserMood = _apiService.getTodayUserMood();
+    final todayPartnerMood = _apiService.getTodayPartnerMood();
+    final couple = _apiService.currentCouple;
+    String partnerName = 'Người ấy';
+    bool hasPartner = false;
+    if (couple != null && couple.participants.length > 1) {
+      final p = couple.participants.firstWhere(
+        (part) => part.linkedUserId != _apiService.currentUser?.uid,
+        orElse: () => couple.participants.last,
+      );
+      partnerName = p.nickname;
+      hasPartner = p.linkedUserId != null;
+    }
+
+    final clientContext = <String, dynamic>{
+      'userNickname': _apiService.currentUser?.nickname,
+      'partnerName': partnerName,
+      'partnerNickname': partnerName,
+      'hasPartner': hasPartner,
+      'userMood': todayUserMood?.label,
+      'partnerMood': todayPartnerMood?.label,
+      'datingStartDate': _apiService.getDatingStartDate()?.toIso8601String(),
+      'daysTogether': _apiService.getDaysTogether(),
+    };
+
     try {
       final res = await _apiService.chatWithAdvisor(
         message: query,
         history: history,
+        clientContext: clientContext,
       );
 
       if (!mounted) return;
-      final reply = res['reply'] as String? ?? _generateAIResponse(query);
+      final rawReply = res['reply'] as String?;
+      final reply = (rawReply != null && rawReply.trim().isNotEmpty)
+          ? rawReply
+          : _generateAIResponse(query);
       final followUps = (res['suggestedFollowUps'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [];
-      final options = (res['options'] as List<dynamic>?)
+      final rawOptions = (res['options'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
-          _generateAIOptions(query);
+          [];
+      final options = rawOptions.isNotEmpty ? rawOptions : _generateAIOptions(query);
 
       final newMsgIndex = _messages.length;
       setState(() {
@@ -347,43 +370,65 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   String _generateAIResponse(String query) {
     final lower = query.toLowerCase();
+    final userName = _apiService.currentUser?.nickname.isNotEmpty == true
+        ? _apiService.currentUser!.nickname
+        : 'bạn';
+    final couple = _apiService.currentCouple;
+    String partnerName = 'Người ấy';
+    if (couple != null && couple.participants.length > 1) {
+      final p = couple.participants.firstWhere(
+        (part) => part.linkedUserId != _apiService.currentUser?.uid,
+        orElse: () => couple.participants.last,
+      );
+      partnerName = p.nickname;
+    }
+    final partnerMood = _apiService.getTodayPartnerMood();
+    final daysTogether = _apiService.getDaysTogether();
 
-    if (lower.contains('hẹn') || lower.contains('cuối tuần') || lower.contains('đi đâu')) {
-      return '✨ **Ý tưởng hẹn hò ngọt ngào cuối tuần này cho hai bạn:**\n\n'
-          '1. **Chiều tà (17:30):** Dạo bước ngắm hoàng hôn bên bờ biển, cùng uống nước dừa và trò chuyện về một tuần vừa qua.\n'
-          '2. **Tối (19:00):** Cùng thưởng thức món ăn vặt đường phố hoặc quán nướng ấm cúng hai người đều mê.\n'
-          '3. **Đêm (20:30):** Ghé một quán cafe acoustic nhạc nhẹ, lắng nghe giai điệu yêu thích trong không gian mộc mạc.\n\n'
-          '💡 *Mẹo của Quân sư:* Hãy chuẩn bị trước một câu hỏi sâu lắng như: "Khoảnh khắc nào trong tuần này làm em/anh thấy ấm lòng nhất?" 💕';
+    String moodAdvice = '';
+    if (partnerMood != null) {
+      moodAdvice = '\n\n💡 *Tâm trạng hôm nay:* $partnerName đang cảm thấy "${partnerMood.label}". Hãy gửi lời quan tâm ấm áp cho $partnerName nhé! 💕';
+    }
+
+    if (lower.contains('hẹn') || lower.contains('cuối tuần') || lower.contains('đi đâu') || lower.contains('date')) {
+      final daysStr = daysTogether != null ? ' sau $daysTogether ngày đồng hành' : '';
+      return '✨ **Ý tưởng hẹn hò ngọt ngào cho $userName và $partnerName$daysStr:**\n\n'
+          '1. **Chiều tà (17:30):** Dạo bước ngắm hoàng hôn, cùng thưởng thức món uống thơm mát và trò chuyện về một tuần vừa qua.\n'
+          '2. **Tối (19:00):** Cùng thưởng thức bữa tối ấm cúng tại một không gian riêng tư, thưởng thức món ăn $partnerName yêu thích.\n'
+          '3. **Đêm (20:30):** Ghé một quán cafe acoustic nhạc nhẹ, lắng nghe giai điệu ngọt ngào trong ánh đèn vàng lung linh.\n\n'
+          '💡 *Mẹo của Quân sư:* Hãy hỏi $partnerName: "Khoảnh khắc nào trong tuần này làm người ấy thấy ấm lòng nhất?" 💕$moodAdvice';
     }
 
     if (lower.contains('bất ngờ') || lower.contains('surprise')) {
-      return '🎁 **Bí kíp tạo bất ngờ khiến người ấy tan chảy:**\n\n'
-          '• **Món quà bí mật:** Tạo một thẻ "Kế hoạch bất ngờ" ngay trong Ourly (chỉ mình bạn thấy) để lên kế hoạch trước.\n'
-          '• **Bức thư tay nhỏ:** Viết một mảnh giấy note để trong túi áo khoác hoặc ví của người ấy với dòng chữ: "Chúc em một ngày ngọt ngào, có anh luôn ở đây."\n'
-          '• **Giao đồ ăn yêu thích bất ngờ:** Đặt đúng món trà sữa ít đường hoặc món ăn vặt người ấy hay nhắc lúc người ấy đang bận rộn.\n\n'
-          'Sự quan tâm chân thành từ những chi tiết nhỏ luôn có sức mạnh lớn nhất! ✨';
+      return '🎁 **Bí kíp tạo bất ngờ khiến $partnerName tan chảy:**\n\n'
+          '• **Món quà bí mật:** Tạo một thẻ "Kế hoạch bất ngờ" ngay trong Ourly (chỉ mình $userName thấy) để lên kế hoạch trước.\n'
+          '• **Bức thư tay nhỏ:** Viết một mảnh giấy note để trong túi áo khoác hoặc ví của $partnerName với dòng chữ: "Chúc người ấy một ngày ngọt ngào, có $userName luôn ở đây."\n'
+          '• **Giao đồ ăn yêu thích bất ngờ:** Đặt đúng món đồ uống hoặc đồ ăn vặt $partnerName hay nhắc lúc đối phương đang bận rộn.\n\n'
+          'Sự quan tâm chân thành từ những chi tiết nhỏ luôn có sức mạnh lớn nhất! ✨$moodAdvice';
     }
 
     if (lower.contains('quà') || lower.contains('kỷ niệm')) {
-      return '💐 **Gợi ý quà tặng kỷ niệm tinh tế & ý nghĩa:**\n\n'
-          '1. **Album ảnh kỷ niệm thu nhỏ:** In 10 bức ảnh đẹp nhất của hai bạn kèm chú thích từng kỷ niệm đáng nhớ.\n'
-          '2. **Hương thơm quen thuộc:** Một lọ nến thơm mùi gỗ ấm hoặc tinh dầu hai bạn cùng thích khi ở cạnh nhau.\n'
+      return '💐 **Gợi ý quà tặng tinh tế cho $partnerName:**\n\n'
+          '1. **Album ảnh kỷ niệm thu nhỏ:** In 10 bức ảnh đẹp nhất của hai bạn trong suốt chặng đường bên nhau kèm chú thích từng kỷ niệm đáng nhớ.\n'
+          '2. **Hương thơm quen thuộc:** Một lọ nến thơm hoặc chai nước hoa mùi gỗ nhẹ nhàng mà $partnerName yêu thích.\n'
           '3. **Một trải nghiệm chung:** Vé xem một đêm nhạc hoặc workshop làm gốm/vẽ tranh cùng nhau.\n\n'
-          'Nhớ kèm theo một bó hoa nhỏ và lời chúc chân thành từ trái tim nhé! 🌷';
+          'Nhớ kèm theo một bó hoa nhỏ và lời chúc chân thành từ trái tim $userName nhé! 🌷$moodAdvice';
     }
 
     if (lower.contains('giận') || lower.contains('im lặng') || lower.contains('cãi nhau') || lower.contains('làm lành')) {
-      return '🕊️ **Quân sư chia sẻ 3 bước hóa giải im lặng & giận dỗi:**\n\n'
-          '1. **Hạ cái tôi xuống:** Mục tiêu không phải là "ai thắng ai thua", mà là bảo vệ tình cảm của hai bạn.\n'
-          '2. **Hành động quan tâm thầm lặng:** Đừng ép người ấy nói ngay nếu đang căng thẳng. Hãy mang cho người ấy một cốc nước ấm hoặc món ăn vặt yêu thích.\n'
-          '3. **Mở lời chân thành:** Thử nhắn tin nhẹ nhàng: "Anh/em biết vừa rồi tụi mình chưa hiểu nhau. Anh/em rất trân trọng em và muốn lắng nghe cảm xúc của em khi em sẵn sàng."\n\n'
-          'Sự dịu dàng luôn là liều thuốc chữa lành tốt nhất! 🌸';
+      return '🕊️ **Quân sư chia sẻ 3 bước hóa giải im lặng & giận dỗi cùng $partnerName:**\n\n'
+          '1. **Hạ cái tôi xuống:** Mục tiêu không phải là "ai thắng ai thua", mà là bảo vệ tình cảm của $userName và $partnerName.\n'
+          '2. **Hành động quan tâm thầm lặng:** Đừng ép $partnerName nói ngay nếu đang căng thẳng. Hãy mang cho người ấy một cốc nước ấm hoặc món ăn vặt yêu thích.\n'
+          '3. **Mở lời chân thành:** Thử nhắn tin nhẹ nhàng: "Mình biết vừa rồi tụi mình chưa hiểu nhau. $userName rất trân trọng $partnerName và muốn lắng nghe cảm xúc của người ấy khi người ấy sẵn sàng."\n\n'
+          'Sự dịu dàng luôn là liều thuốc chữa lành tốt nhất! 🌸$moodAdvice';
     }
 
-    return '💖 Cảm ơn bạn đã chia sẻ với Quân sư Ourly!\n\n'
-        'Tình yêu đẹp không phải là không bao giờ có sóng gió, mà là sau mỗi lần trò chuyện, hai bạn lại hiểu và thương nhau nhiều hơn.\n\n'
-        'Nếu bạn cần lên lịch hẹn hò cụ thể hoặc muốn mình gợi ý thêm điều gì, cứ nhắn cho mình bất cứ lúc nào nhé! 🪽';
+    final daysStr = daysTogether != null ? ' Hai bạn đã đồng hành được **$daysTogether ngày** ngọt ngào!' : '';
+    return '💖 Chào $userName! Quân sư Ourly luôn sẵn sàng đồng hành cùng bạn và $partnerName.$daysStr\n\n'
+        'Tình yêu đẹp là sau mỗi lần trò chuyện, hai bạn lại hiểu và thương nhau nhiều hơn.\n\n'
+        'Nếu bạn cần lên lịch hẹn hò cụ thể hoặc muốn mình gợi ý thêm điều gì cho $partnerName, cứ nhắn cho mình bất cứ lúc nào nhé! 🪽$moodAdvice';
   }
+
 
   List<String> _generateAIOptions(String query) {
     final lower = query.toLowerCase();
@@ -852,12 +897,71 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      msg.text,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        color: AppColors.textPrimary,
-                        height: 1.45,
+                    MarkdownBody(
+                      data: msg.text,
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet(
+                        p: const TextStyle(
+                          fontSize: 13.5,
+                          color: AppColors.textPrimary,
+                          height: 1.45,
+                        ),
+                        strong: const TextStyle(
+                          fontSize: 13.5,
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          height: 1.45,
+                        ),
+                        em: const TextStyle(
+                          fontSize: 13.5,
+                          color: AppColors.textPrimary,
+                          fontStyle: FontStyle.italic,
+                          height: 1.45,
+                        ),
+                        code: TextStyle(
+                          fontSize: 12.5,
+                          color: const Color(0xFFE85A42),
+                          backgroundColor: const Color(0xFFFFF1F2),
+                          fontFamily: 'monospace',
+                        ),
+                        codeblockDecoration: BoxDecoration(
+                          color: const Color(0xFFFFF7F5),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFFDCD4)),
+                        ),
+                        listBullet: const TextStyle(
+                          fontSize: 13.5,
+                          color: AppColors.primary,
+                        ),
+                        h1: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                        h2: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                        h3: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                        blockquoteDecoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border(left: BorderSide(color: AppColors.primary, width: 3)),
+                        ),
+                        blockquote: const TextStyle(
+                          fontSize: 13.5,
+                          color: AppColors.textSecondary,
+                          fontStyle: FontStyle.italic,
+                          height: 1.45,
+                        ),
+                        horizontalRuleDecoration: BoxDecoration(
+                          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),

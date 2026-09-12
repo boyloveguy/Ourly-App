@@ -8,6 +8,7 @@ class ChatMessageItem(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     history: List[ChatMessageItem] = Field(default_factory=list)
+    clientContext: Optional[dict] = Field(default=None, description="Client-side user & partner mood and couple info")
 
 class ChatResponse(BaseModel):
     reply: str

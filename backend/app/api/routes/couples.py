@@ -95,3 +95,26 @@ def update_participant(
         
     FirestoreRepo.update_couple(couple)
     return target_part
+
+@router.post("/{coupleId}/unlink", response_model=CoupleSpace)
+def unlink_partner(coupleId: str, uid: str = Depends(get_current_user_id)):
+    couple = FirestoreRepo.get_couple(coupleId)
+    if not couple:
+        raise not_found("CoupleSpace")
+        
+    member_uids = [p.linkedUserId for p in couple.participants if p.linkedUserId is not None]
+    if uid not in member_uids:
+        raise forbidden()
+        
+    for p in couple.participants:
+        if p.role == ParticipantRole.invitee and p.linkedUserId is not None:
+            unlinked_uid = p.linkedUserId
+            p.linkedUserId = None
+            p.nickname = "Partner"
+            FirestoreRepo.save_or_update_user(unlinked_uid, {"activeCoupleId": None})
+
+    couple.status = CoupleStatus.solo
+    couple.updatedAt = datetime.now(timezone.utc)
+    FirestoreRepo.update_couple(couple)
+    return couple
+

@@ -5,6 +5,8 @@ class AppUser {
   final String? activeCoupleId;
   final String? avatar;
   final String? birthday;
+  final String? gender;
+  final String? datingStartDate;
 
   AppUser({
     required this.uid,
@@ -13,6 +15,8 @@ class AppUser {
     this.activeCoupleId,
     this.avatar,
     this.birthday,
+    this.gender,
+    this.datingStartDate,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -23,6 +27,8 @@ class AppUser {
       activeCoupleId: json['activeCoupleId'] as String?,
       avatar: json['avatar'] as String?,
       birthday: json['birthday'] as String?,
+      gender: json['gender'] as String?,
+      datingStartDate: json['datingStartDate'] as String?,
     );
   }
 
@@ -33,5 +39,7 @@ class AppUser {
     'activeCoupleId': activeCoupleId,
     'avatar': avatar,
     'birthday': birthday,
+    'gender': gender,
+    'datingStartDate': datingStartDate,
   };
 }
