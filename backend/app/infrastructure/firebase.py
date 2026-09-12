@@ -42,6 +42,8 @@ def get_db():
         return None
 
 def verify_token(token: str) -> dict:
+    if settings.DEMO_MODE and token in ("demo-alex", "demo-emma"):
+        return {"uid": token}
     try:
         if token.startswith("user-") or token.startswith("mock-"):
             return {"uid": token}

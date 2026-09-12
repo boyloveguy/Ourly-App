@@ -7,6 +7,7 @@ import 'accept_invite_dialog.dart';
 import 'chatbot_screen.dart';
 import '../widgets/romantic_effects.dart';
 import '../widgets/ourly_date_picker.dart';
+import '../widgets/demo_dashboard_panel.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -319,7 +320,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isConnected = _couple?.status == CoupleStatus.connected;
     final myNickname = (user?.nickname.isNotEmpty == true ? user!.nickname : (_couple?.creatorParticipant?.nickname ?? 'Bạn'));
     final creatorName = myNickname;
-    final partnerName = _couple?.partnerParticipant?.nickname ?? 'Người ấy';
+    final partnerName = _couple?.participants.where((p) => p.linkedUserId != user?.uid).firstOrNull?.nickname ?? 'Người ấy';
     final currentUid = user?.uid ?? '';
 
     // Title string
@@ -434,7 +435,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                             // Notification bell icon
                             CuteBounceOnTap(
-                              onTap: () {},
+                              onTap: () {
+                                if (_apiService.isDemoUser) showModalBottomSheet(
+                                  context: context, isScrollControlled: true,
+                                  builder: (_) => const SafeArea(child: SingleChildScrollView(child: DemoDashboardPanel())),
+                                );
+                              },
                               child: Container(
                                 width: 38,
                                 height: 38,
@@ -498,6 +504,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 20),
 
+                      if (_apiService.isDemoUser) const DemoDashboardPanel(),
+
                       // Status Alert / Pending Invite Banner
                       if (!isConnected) ...[
                         Container(
@@ -546,6 +554,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
 
                       // Notification Card 1 (Mockup: Cô ấy thích hoa...)
+                      if (!_apiService.isDemoUser)
                       CuteBounceOnTap(
                         onTap: () {
                           LoveSparkleOverlay.show(context);
@@ -577,6 +586,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 12),
 
                       // Counter Card 2 (Mockup: 412 days together...)
+                      if (!_apiService.isDemoUser)
                       CuteBounceOnTap(
                         onTap: () {
                           LoveSparkleOverlay.show(context);
@@ -616,6 +626,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
 
                       // Love Advisor Hero Card
+                      if (!_apiService.isDemoUser)
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(22),
@@ -929,7 +940,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final user = _apiService.currentUser;
           final isConnected = _couple?.status == CoupleStatus.connected;
           final creator = _couple?.creatorParticipant;
-          final partner = _couple?.partnerParticipant;
+          final partner = _couple?.participants.where((p) => p.linkedUserId != user?.uid).firstOrNull;
           final myNickname = (user?.nickname.isNotEmpty == true)
               ? user!.nickname
               : (creator?.nickname ?? 'Bạn');

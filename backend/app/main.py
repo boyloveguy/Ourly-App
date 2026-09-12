@@ -4,10 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.errors import AppException, ErrorResponse
 from app.infrastructure.firebase import init_firebase
+from app.demo_seed import seed_demo_data
 from app.api.routes import health, auth, users, couples, invites, preferences, partners, recommendations, date_plans, chat, voice
 
 # Init Firebase
 init_firebase()
+if settings.DEMO_MODE:
+    seed_demo_data()
 
 app = FastAPI(
     title="Ourly - Love Advisor API",
@@ -41,3 +44,5 @@ app.include_router(recommendations.router, prefix="/v1")
 app.include_router(date_plans.router, prefix="/v1")
 app.include_router(chat.router, prefix="/v1")
 app.include_router(voice.router, prefix="/v1")
+from app.api.routes.demo import router as demo_router
+app.include_router(demo_router, prefix="/v1")

@@ -10,7 +10,7 @@ class ApiService {
   factory ApiService() => _instance;
 
   final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'http://127.0.0.1:8000',
+    baseUrl: const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:8000'),
     connectTimeout: const Duration(seconds: 15),
     receiveTimeout: const Duration(seconds: 30),
     headers: {
@@ -81,6 +81,23 @@ class ApiService {
     currentUser = null;
     currentToken = null;
   }
+
+  bool get isDemoUser => currentUser?.uid == 'demo-alex' || currentUser?.uid == 'demo-emma';
+
+  Future<Map<String, dynamic>> demoContext() async => Map<String, dynamic>.from((await _dio.get('/v1/demo/context')).data);
+  Future<List<Map<String, dynamic>>> recommendations() async {
+    final res = await _dio.post('/v1/recommendations', data: {
+      'partnerId': 'demo-participant-emma', 'occasion': 'Anniversary',
+      'budget': {'amount': 500000, 'currency': 'VND'},
+    });
+    return (res.data as List).map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+  Future<Map<String, dynamic>> createDemoPlan(String id) async => Map<String, dynamic>.from((await _dio.post('/v1/demo/plans', data: {'recommendationId': id})).data);
+  Future<Map<String, dynamic>> updateDemoPlan(String id, Map<String, dynamic> data) async => Map<String, dynamic>.from((await _dio.patch('/v1/demo/plans/$id', data: data)).data);
+  Future<Map<String, dynamic>> sendDemoHint(String id) async => Map<String, dynamic>.from((await _dio.post('/v1/demo/plans/$id/hint')).data);
+  Future<List<Map<String, dynamic>>> notifications() async => ((await _dio.get('/v1/demo/notifications')).data as List).map((e) => Map<String, dynamic>.from(e)).toList();
+  Future<void> readNotification(String id) async { await _dio.patch('/v1/demo/notifications/$id/read'); }
+  Future<void> resetDemo() async { await _dio.post('/v1/demo/reset'); }
 
   Future<bool> updateCurrentUserProfile({
     String? nickname,
@@ -473,4 +490,3 @@ class ApiService {
     _mockChatHistory[uid] = [];
   }
 }
-

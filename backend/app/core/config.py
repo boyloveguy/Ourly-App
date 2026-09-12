@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
+    DEMO_MODE: bool = True
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
     

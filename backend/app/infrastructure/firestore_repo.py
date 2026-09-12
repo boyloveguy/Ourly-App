@@ -18,7 +18,8 @@ from app.domain.schemas.preference import Preference, PreferenceVisibility
 
 def is_firestore_enabled() -> bool:
     """Return True if Firestore should be used (not in mock unit-test mode)."""
-    if os.getenv("TESTING") == "1":
+    from app.core.config import settings
+    if settings.DEMO_MODE or os.getenv("TESTING") == "1":
         return False
     return get_db() is not None
 
@@ -280,7 +281,8 @@ class FirestoreRepo:
             try:
                 db = get_db()
                 docs = db.collection("preferences").where("coupleId", "==", couple_id).get()
-                return [Preference(**d.to_dict()) for d in docs]
+                if docs:
+                    return [Preference(**d.to_dict()) for d in docs]
             except Exception as e:
                 print(f"[FirestoreRepo] Error reading preferences for {couple_id}: {e}")
                 

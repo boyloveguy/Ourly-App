@@ -3,18 +3,21 @@ import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/voice_service.dart';
 import '../widgets/romantic_effects.dart';
+import 'demo_moment_screen.dart';
 
 class ChatMessage {
   final String text;
   final bool isUser;
   final DateTime timestamp;
   final List<String> options;
+  final Map<String, String> actions;
   String? selectedOption;
 
   ChatMessage({
     required this.text,
     required this.isUser,
     List<String>? options,
+    this.actions = const {},
     this.selectedOption,
     DateTime? timestamp,
   })  : options = options ?? [],
@@ -22,7 +25,8 @@ class ChatMessage {
 }
 
 class ChatbotScreen extends StatefulWidget {
-  const ChatbotScreen({super.key});
+  final String? initialPrompt;
+  const ChatbotScreen({super.key, this.initialPrompt});
 
   @override
   State<ChatbotScreen> createState() => _ChatbotScreenState();
@@ -38,12 +42,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _isListening = false;
   bool _isSpeaking = false;
   int? _speakingMessageIndex;
-  bool _autoSpeakEnabled = true;
+  bool _autoSpeakEnabled = false;
   bool _isLoadingHistory = true;
 
   final List<ChatMessage> _messages = [];
 
   final List<String> _quickSuggestions = [
+    'Cuối tuần này làm gì với Emma nhỉ? Budget khoảng 500K.',
+    'Mình muốn làm gì đó cho Emma mà không nhớ gần đây cô ấy thích gì nữa.',
     '🍷 Gợi ý buổi hẹn lãng mạn cuối tuần',
     '🎁 Ý tưởng bất ngờ làm người ấy vui',
     '💐 Gợi ý quà tặng kỷ niệm ý nghĩa',
@@ -53,7 +59,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   void initState() {
     super.initState();
-    _loadChatHistory();
+    _loadChatHistory().then((_) {
+      if (mounted && widget.initialPrompt != null) _sendMessage(widget.initialPrompt!);
+    });
   }
 
   Future<void> _loadChatHistory() async {
@@ -92,6 +100,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             text: m['text']?.toString() ?? '',
             isUser: m['isUser'] == true,
             options: optionsList,
+            actions: Map<String, String>.from(m['actions'] ?? {}),
             selectedOption: m['selectedOption']?.toString(),
             timestamp: DateTime.tryParse(m['createdAt']?.toString() ?? '') ?? DateTime.now(),
           ),
@@ -303,6 +312,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           text: reply,
           isUser: false,
           options: options,
+          actions: Map<String, String>.from(res['actions'] ?? {}),
         ));
         _isTyping = false;
         if (followUps.isNotEmpty) {
@@ -943,7 +953,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                                     setState(() {
                                       msg.selectedOption = option;
                                     });
-                                    _sendMessage(option);
+                                    final action = msg.actions[option];
+                                    if (action == 'recommendations' || (action?.startsWith('moment:') ?? false)) {
+                                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => DemoMomentScreen(
+                                        recommendationId: action == 'recommendations' ? null : action!.substring(7),
+                                      )));
+                                    } else {
+                                      _sendMessage(option);
+                                    }
                                   },
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 200),

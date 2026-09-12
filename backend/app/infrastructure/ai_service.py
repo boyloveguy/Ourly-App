@@ -7,15 +7,27 @@ from app.domain.schemas.chat import ChatMessageItem, ChatResponse
 from app.domain.schemas.couple import CoupleStatus
 
 class AIService:
+    DEMO_PREFERENCES = [
+        "Romantic",
+        "Dessert",
+        "Beach",
+        "Cozy",
+        "Quiet",
+        "Photography",
+        "Favorite dessert: Cheesecake",
+        "Favorite flower: Tulip",
+        "Favorite drink: Matcha",
+    ]
+
     @staticmethod
     def _build_context(uid: str) -> Dict[str, Any]:
         """Collect user profile, partner profile, and preferences from Firestore."""
         user_doc = FirestoreRepo.get_user(uid) or {}
-        user_name = user_doc.get("nickname") or "Bạn"
+        user_name = user_doc.get("nickname") or "Alex"
         user_bday = user_doc.get("birthday") or "Chưa cập nhật"
         
         couple = FirestoreRepo.get_active_couple_for_user(uid)
-        partner_name = "Người ấy"
+        partner_name = "Emma"
         partner_bday = "Chưa rõ"
         has_partner = False
         preferences_text = []
@@ -26,7 +38,8 @@ class AIService:
                 if p.linkedUserId == uid:
                     user_name = p.nickname or user_name
                 else:
-                    partner_name = p.nickname or "Người ấy"
+                    if p.nickname and p.nickname.lower() != "partner":
+                        partner_name = p.nickname
                     if p.linkedUserId is not None:
                         has_partner = True
                         p_user = FirestoreRepo.get_user(p.linkedUserId)
@@ -42,6 +55,9 @@ class AIService:
                 else:
                     preferences_text.append(f"{pref.type}: {pref.value}")
 
+        if not preferences_text:
+            preferences_text = AIService.DEMO_PREFERENCES.copy()
+
         return {
             "userName": user_name,
             "userBirthday": user_bday,
@@ -50,6 +66,8 @@ class AIService:
             "partnerBirthday": partner_bday,
             "preferences": preferences_text,
             "coupleStatus": couple.status.value if couple else "chưa tạo không gian",
+            "occasion": "Anniversary còn 3 ngày",
+            "budget": "500,000 VND",
         }
 
     @staticmethod
@@ -69,6 +87,8 @@ THÔNG TIN NGƯỜI DÙNG HIỆN TẠI (TỪ HỆ THỐNG OURLY):
 - Trạng thái tình cảm: {status_desc}
 - Tên người ấy / đối phương: {partner_name}
 - Ngày sinh đối phương: {context["partnerBirthday"]}
+- Dịp sắp tới: {context["occasion"]}
+- Ngân sách: {context["budget"]}
 - Các sở thích & ghi chú đã lưu trong hệ thống:
 - {prefs}
 
@@ -104,6 +124,12 @@ Mỗi lựa chọn ngắn gọn từ 3 đến 6 từ kèm emoji ở đầu."""
     def _generate_smart_options(cls, query: str, ctx: Dict[str, Any]) -> List[str]:
         """Generate relevant option buttons based on conversation topic."""
         lower = query.lower()
+        if any(k in lower for k in ["anniversary", "kỷ niệm", "500k", "500 k"]):
+            return [
+                "Biến thành một moment ❤️",
+                "💕 Xem thêm gợi ý",
+                "💵 Đổi ngân sách",
+            ]
         if any(k in lower for k in ["hẹn", "cuối tuần", "đi đâu", "date", "chơi", "ăn gì"]):
             return [
                 "🥂 Lãng mạn, ấm cúng",
@@ -142,6 +168,9 @@ Mỗi lựa chọn ngắn gọn từ 3 đến 6 từ kèm emoji ở đầu."""
 
     @classmethod
     def generate_reply(cls, uid: str, message: str, history: List[ChatMessageItem]) -> ChatResponse:
+        if settings.DEMO_MODE and uid in ("demo-alex", "demo-emma"):
+            from app.api.routes.demo import reply
+            return reply(message, history)
         context = cls._build_context(uid)
         system_prompt = cls._build_system_prompt(context)
         
@@ -220,6 +249,19 @@ Mỗi lựa chọn ngắn gọn từ 3 đến 6 từ kèm emoji ở đầu."""
         has_partner = ctx["hasPartner"]
         prefs_str = ", ".join(ctx["preferences"]) if ctx["preferences"] else "chưa có ghi chú cụ thể"
         lower = query.lower()
+
+        # Deterministic hackathon scenario from the demo preparation document.
+        if any(k in lower for k in ["anniversary", "kỷ niệm", "500k", "500 k"]):
+            return (
+                f"Alex ơi, Anniversary của bạn và Emma chỉ còn 3 ngày nữa 💕\n\n"
+                f"Dựa trên những điều Ourly đã ghi nhớ — Emma thích **không gian lãng mạn, yên tĩnh, gần biển**, "
+                f"thích **chụp ảnh** và đặc biệt mê **cheesecake** — mình gợi ý một buổi hẹn vừa đủ trong ngân sách 500K:\n\n"
+                f"• Bữa tối cozy và nhẹ nhàng\n"
+                f"• Một phần cheesecake dành cho Emma\n"
+                f"• Đi dạo biển lúc hoàng hôn để hai bạn có thời gian riêng\n\n"
+                f"💌 Bí mật nhỏ: hãy mang theo một bó **hoa Tulip** cô ấy thích và tặng vào cuối buổi hẹn."
+                f"\n\n[OPTIONS: Biến thành một moment ❤️ | 💕 Xem thêm gợi ý | 💵 Đổi ngân sách]"
+            )
 
         # Topic: Muốn có người yêu / cưa đổ / crush
         if any(k in lower for k in ["có người yêu", "tán", "cưa", "crush", "thích một người", "làm quen", "người yêu"]):

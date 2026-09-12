@@ -27,6 +27,7 @@ def chat_with_advisor(req: ChatRequest, uid: str = Depends(get_current_user_id))
         "isUser": False,
         "text": response.reply,
         "options": response.options,
+        "actions": response.actions,
         "createdAt": reply_time,
     })
 
@@ -37,6 +38,7 @@ def get_chat_history(uid: str = Depends(get_current_user_id)):
     msgs = FirestoreRepo.get_chat_history(uid)
     records = [
         ChatMessageRecord(
+            actions=m.get("actions") or {},
             id=str(m.get("id", "")),
             isUser=bool(m.get("isUser", False)),
             text=str(m.get("text", "")),

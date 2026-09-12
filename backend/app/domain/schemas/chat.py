@@ -10,11 +10,13 @@ class ChatRequest(BaseModel):
     history: List[ChatMessageItem] = Field(default_factory=list)
 
 class ChatResponse(BaseModel):
+    actions: dict[str, str] = Field(default_factory=dict)
     reply: str
     suggestedFollowUps: List[str] = Field(default_factory=list)
     options: List[str] = Field(default_factory=list, description="Interactive option buttons for user when AI needs more info or clarification")
 
 class ChatMessageRecord(BaseModel):
+    actions: dict[str, str] = Field(default_factory=dict)
     id: str
     isUser: bool
     text: str

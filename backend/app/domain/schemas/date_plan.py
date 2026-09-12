@@ -5,6 +5,7 @@ from enum import Enum
 from app.domain.schemas.recommendation import Budget
 
 class PlanStatus(str, Enum):
+    suggested = "suggested"
     draft = "draft"
     planned = "planned"
     completed = "completed"
