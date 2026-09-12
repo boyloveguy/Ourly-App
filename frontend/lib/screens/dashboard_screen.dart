@@ -7,6 +7,7 @@ import 'accept_invite_dialog.dart';
 import 'chatbot_screen.dart';
 import '../widgets/romantic_effects.dart';
 import '../widgets/ourly_date_picker.dart';
+import 'dating_plan_flow.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -313,6 +314,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _openDatingPlanFlow() {
+    final partnerName = _couple?.partnerParticipant?.nickname ?? 'Người ấy';
+    final userPrefs = _preferences.map((p) => p.value).toList();
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => DatingPlanFlow(
+          initialPreferences: userPrefs,
+          partnerNickname: partnerName,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = _apiService.currentUser;
@@ -528,17 +543,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        // Button for Partner B to accept
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _openAcceptInviteDialog,
-                            icon: const Icon(Icons.link, size: 18),
-                            label: const Text('Nhập liên kết mời từ người ấy (Partner Accept)'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              side: const BorderSide(color: AppColors.primary),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        // Nút "Lên kèo hẹn hò"
+                        CuteBounceOnTap(
+                          onTap: _openDatingPlanFlow,
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF0654B), Color(0xFFDF4D35)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: AppShadows.button3D,
+                            ),
+                            child: ElevatedButton.icon(
+                              onPressed: _openDatingPlanFlow,
+                              icon: const Text('🥂', style: TextStyle(fontSize: 18)),
+                              label: const Text(
+                                'Lên kèo hẹn hò',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(vertical: 13),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              ),
                             ),
                           ),
                         ),
@@ -659,17 +695,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             const SizedBox(height: 18),
                             CuteBounceOnTap(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (context) => const ChatbotScreen()),
-                                );
-                              },
+                              onTap: _openDatingPlanFlow,
                               child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(builder: (context) => const ChatbotScreen()),
-                                  );
-                                },
+                                onPressed: _openDatingPlanFlow,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF2C1914),
                                   foregroundColor: Colors.white,

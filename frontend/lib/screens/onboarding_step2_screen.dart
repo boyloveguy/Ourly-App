@@ -21,11 +21,79 @@ class OnboardingStep2Screen extends StatefulWidget {
 class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
   final _apiService = ApiService();
   String _inviteCode = 'LV-8K2M';
+  final _acceptLinkController = TextEditingController();
+  bool _isConnecting = false;
 
   @override
   void initState() {
     super.initState();
     _loadOrCreateInvite();
+  }
+
+  @override
+  void dispose() {
+    _acceptLinkController.dispose();
+    super.dispose();
+  }
+
+  String _extractToken(String input) {
+    input = input.trim();
+    if (input.contains('/invite/')) {
+      return input.split('/invite/').last.trim();
+    }
+    return input;
+  }
+
+  Future<void> _handleConnectPartnerLink() async {
+    final token = _extractToken(_acceptLinkController.text);
+    if (token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng dán liên kết mời từ người ấy.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isConnecting = true);
+
+    try {
+      final nickname = _apiService.currentUser?.nickname ?? 'Bạn';
+      final ok = await _apiService.acceptInvite(token: token, nickname: nickname);
+      if (ok) {
+        if (mounted) {
+          LoveSparkleOverlay.show(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎉 Chúc mừng hai bạn đã kết nối Couple Space thành công!'),
+              backgroundColor: AppColors.primary,
+            ),
+          );
+          widget.onEnterSpace();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể chấp nhận lời mời. Liên kết không hợp lệ hoặc đã hết hạn.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi kết nối: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isConnecting = false);
+    }
   }
 
   Future<void> _loadOrCreateInvite() async {
@@ -252,6 +320,77 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
                         'Chia sẻ liên kết này với người ấy. Liên kết có hiệu lực trong 72 giờ.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 20),
+                      const Divider(color: AppColors.border, height: 1),
+                      const SizedBox(height: 18),
+
+                      const Text(
+                        'HOẶC NHẬP LIÊN KẾT TỪ NGƯỜI ẤY',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: AppColors.stepLabel,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Ô nhập liên kết từ người ấy
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.border),
+                          boxShadow: AppShadows.input3D,
+                        ),
+                        child: Row(
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Icon(Icons.link_rounded, color: AppColors.primary, size: 20),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: _acceptLinkController,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: 'Dán liên kết mời từ người ấy...',
+                                  hintStyle: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 14),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ElevatedButton(
+                                onPressed: _isConnecting ? null : _handleConnectPartnerLink,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: _isConnecting
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      )
+                                    : const Text(
+                                        'Kết nối',
+                                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
